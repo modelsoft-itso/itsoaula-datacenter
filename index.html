@@ -12,1055 +12,1135 @@
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+        "lucide-react": "https://esm.sh/lucide-react@0.294.0"
       }
     }
     </script>
-    
+
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* Ajustes para ocultar la barra de scroll pero permitir deslizar */
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        /* Ajustes para ocultar la barra de scroll pero permitir deslizamiento */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200">
-    
+
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
+        import React, { useState, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
+        import { initializeApp } from "firebase/app";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
+        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "firebase/firestore";
         import { 
-          BookOpen, Layout, Users, Award, Search, Plus, CheckCircle, 
-          X, Menu, LogOut, Briefcase, Monitor, BarChart, PenTool, 
-          Clock, User, Shield, Lock, ArrowRight, UserPlus, Trash2, 
-          Filter, Tag, Cpu, Wifi, Link, Video, PlayCircle, ExternalLink, 
-          Pencil, Save, AlertTriangle, Key, Mail, Timer, Library, Edit,
-          Star, Download, FileText, Signal, GraduationCap, Hash, CheckSquare, Wand2,
-          Settings
+            BookOpen, Layout, Users, Award, Search, Plus, CheckCircle, 
+            X, Menu, LogOut, Shield, Key, Mail, Timer, Library, 
+            Star, Download, FileText, Signal, GraduationCap, Hash, CheckSquare, Wand2,
+            Settings, Cloud, Monitor, Wifi, Cpu, PlayCircle, ExternalLink, Pencil, AlertTriangle, ArrowRight, User, UserPlus, Trash2, Filter, Tag, Clock
         } from 'lucide-react';
 
-        // --- TÚ CÓDIGO ORIGINAL ---
-
-        const ADMIN_CREDENTIALS = {
-          email: "copauyunifreddy@gmail.com",
-          password: "*60Copa11"
+        // --- ⚠️ IMPORTANTE: PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE ⚠️ ---
+        // Reemplaza los textos entre comillas con los datos de tu consola de Firebase
+        const firebaseConfig = {
+        apiKey: "AIzaSyCv2KTl2y9d1j47LHIOmy3bYalYwQY_i44",
+        authDomain: "aula-digital-itso.firebaseapp.com",
+        projectId: "aula-digital-itso",
+        storageBucket: "aula-digital-itso.firebasestorage.app",
+        messagingSenderId: "882203405918",
+        appId: "1:882203405918:web:52ef8e70da37f28a860ecf",
+        measurementId: "G-Q7S6FJSPNP"
         };
 
-        const INITIAL_ADMIN_DATA = {
-          id: 1,
-          name: "Freddy Copa Uyuni",
-          email: ADMIN_CREDENTIALS.email,
-          password: ADMIN_CREDENTIALS.password,
-          company: "Copa Uyuni Tecnología, Model Bolivia S.A.",
-          role: "Administrador",
-          status: "Activo"
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // ID de la aplicación para separar datos (puedes dejarlo así o cambiarlo)
+        const appId = 'model-bolivia-app-v1';
+
+        // --- CONSTANTES ---
+        const ADMIN_CREDENTIALS = {
+            email: "copauyunifreddy@gmail.com",
+            password: "*60Copa11"
         };
 
         const INACTIVITY_LIMIT_MS = 10 * 60 * 1000; // 10 Minutos
 
+        const INITIAL_ADMIN_DATA = {
+            name: "Freddy Copa Uyuni",
+            email: ADMIN_CREDENTIALS.email,
+            password: ADMIN_CREDENTIALS.password,
+            company: "Copa Uyuni Tecnología, Model Bolivia S.A.",
+            role: "Administrador",
+            status: "Activo"
+        };
+
+        const SEED_USERS = [
+            INITIAL_ADMIN_DATA,
+            { name: "Ana García", email: "ana@instituto.edu", password: "123", role: "Estudiante", status: "Activo", career: "Informática Industrial", period: "Primer Semestre" },
+            { name: "Carlos Ruiz", email: "carlos@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-8821", careers: ["Automatización y Robótica Industrial"] },
+            { name: "Ing. Laura Paez", email: "laura@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-1123", careers: ["Redes y Telecomunicaciones"] },
+            { name: "Ing. Roberto Méndez", email: "roberto@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-4452", careers: ["Informática Industrial", "Redes y Telecomunicaciones", "Automatización y Robótica Industrial"] }
+        ];
+
+        const SEED_COURSES = [
+            {
+                title: "Programación Estructurada en C++",
+                instructor: "Ing. Roberto Méndez",
+                category: "Informática Industrial",
+                subcategory: "Primer Semestre",
+                topic: "Fundamentos de Programación",
+                duration: "40h",
+                level: "Básico",
+                description: "Dominio de la lógica de programación y algoritmos fundamentales.",
+                color: "blue",
+                videoEmbed: '<iframe width="100%" height="100%" src="https://www.youtube.com/embed/MNeX4EGtR5Y" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
+                fileTitle: "Guía de Sintaxis C++",
+                fileLink: "https://example.com/guide.pdf",
+                videoTitle: "Intro a C++"
+            },
+            {
+                title: "Configuración de Routers Cisco",
+                instructor: "Ing. Laura Paez",
+                category: "Redes y Telecomunicaciones",
+                subcategory: "Segundo Semestre",
+                topic: "Enrutamiento y Conmutación",
+                duration: "35h",
+                level: "Intermedio",
+                description: "Configuración avanzada de dispositivos de red.",
+                color: "indigo"
+            },
+            {
+                title: "PLC Siemens S7-1200",
+                instructor: "Ing. Carlos Ruiz",
+                category: "Automatización y Robótica Industrial",
+                subcategory: "Año 2",
+                topic: "Controladores Lógicos (PLC)",
+                duration: "50h",
+                level: "Avanzado",
+                description: "Automatización con TIA Portal.",
+                color: "emerald"
+            }
+        ];
+
         const CATEGORIES_CONFIG = {
-          "Informática Industrial": {
-            "Primer Semestre": ["Fundamentos de Programación", "Matemáticas Discretas", "Arquitectura de Computadoras", "Inglés Técnico I"],
-            "Segundo Semestre": ["Estructura de Datos", "Sistemas Operativos", "Bases de Datos I", "Programación Web"],
-            "Tercer Semestre": ["Redes de Computadoras", "Ingeniería de Software", "Desarrollo Móvil", "Bases de Datos II"],
-            "Cuarto Semestre": ["Inteligencia Artificial", "Seguridad Informática", "Gestión de Proyectos TI", "Prácticas Profesionales I"],
-            "Quinto Semestre": ["Big Data & Analytics", "Desarrollo Full Stack", "Auditoría de Sistemas", "Internet de las Cosas (IoT)"],
-            "Sexto Semestre": ["Computación en la Nube", "Tesis de Grado", "Ética Profesional", "Prácticas Profesionales II"]
-          },
-          "Redes y Telecomunicaciones": {
-            "Primer Semestre": ["Introducción a las Telecomunicaciones", "Física Aplicada", "Cálculo I", "Fundamentos de Hardware"],
-            "Segundo Semestre": ["Enrutamiento y Conmutación", "Medios de Transmisión", "Sistemas Digitales", "Electrónica Básica"],
-            "Tercer Semestre": ["Redes Inalámbricas", "Telefonía IP", "Administración de Servidores Linux", "Cableado Estructurado"],
-            "Cuarto Semestre": ["Ciberseguridad Avanzada", "Fibra Óptica", "Cloud Computing", "Proyecto Final de Redes"],
-            "Quinto Semestre": ["Redes Definidas por Software (SDN)", "Virtualización", "Gestión de Servicios TI", "Legislación en Telecomunicaciones"],
-            "Sexto Semestre": ["5G y Nuevas Tecnologías", "Auditoría de Redes", "Proyecto de Grado", "Emprendimiento Tecnológico"]
-          },
-          "Automatización y Robótica Industrial": {
-            "Año 1": ["Introducción a la Robótica", "Álgebra Lineal", "Dibujo Técnico Industrial", "Seguridad Industrial", "Circuitos Eléctricos", "Mecánica Básica"],
-            "Año 2": ["Sensores y Actuadores", "Electrónica Analógica", "Controladores Lógicos (PLC)", "Neumática e Hidráulica", "Sistemas SCADA", "Microcontroladores"],
-            "Año 3": ["Robótica Móvil", "Visión Artificial", "Mantenimiento Industrial", "Integración de Sistemas", "Industria 4.0", "Proyecto Final de Automatización"]
-          }
+            "Informática Industrial": {
+                "Primer Semestre": ["Fundamentos de Programación", "Matemáticas Discretas", "Arquitectura de Computadoras", "Inglés Técnico I"],
+                "Segundo Semestre": ["Estructura de Datos", "Sistemas Operativos", "Bases de Datos I", "Programación Web"],
+                "Tercer Semestre": ["Redes de Computadoras", "Ingeniería de Software", "Desarrollo Móvil", "Bases de Datos II"],
+                "Cuarto Semestre": ["Inteligencia Artificial", "Seguridad Informática", "Gestión de Proyectos TI", "Prácticas Profesionales I"],
+                "Quinto Semestre": ["Big Data & Analytics", "Desarrollo Full Stack", "Auditoría de Sistemas", "Internet de las Cosas (IoT)"],
+                "Sexto Semestre": ["Computación en la Nube", "Tesis de Grado", "Ética Profesional", "Prácticas Profesionales II"]
+            },
+            "Redes y Telecomunicaciones": {
+                "Primer Semestre": ["Introducción a las Telecomunicaciones", "Física Aplicada", "Cálculo I", "Fundamentos de Hardware"],
+                "Segundo Semestre": ["Enrutamiento y Conmutación", "Medios de Transmisión", "Sistemas Digitales", "Electrónica Básica"],
+                "Tercer Semestre": ["Redes Inalámbricas", "Telefonía IP", "Administración de Servidores Linux", "Cableado Estructurado"],
+                "Cuarto Semestre": ["Ciberseguridad Avanzada", "Fibra Óptica", "Cloud Computing", "Proyecto Final de Redes"],
+                "Quinto Semestre": ["Redes Definidas por Software (SDN)", "Virtualización", "Gestión de Servicios TI", "Legislación en Telecomunicaciones"],
+                "Sexto Semestre": ["5G y Nuevas Tecnologías", "Auditoría de Redes", "Proyecto de Grado", "Emprendimiento Tecnológico"]
+            },
+            "Automatización y Robótica Industrial": {
+                "Año 1": ["Introducción a la Robótica", "Álgebra Lineal", "Dibujo Técnico Industrial", "Seguridad Industrial", "Circuitos Eléctricos", "Mecánica Básica"],
+                "Año 2": ["Sensores y Actuadores", "Electrónica Analógica", "Controladores Lógicos (PLC)", "Neumática e Hidráulica", "Sistemas SCADA", "Microcontroladores"],
+                "Año 3": ["Robótica Móvil", "Visión Artificial", "Mantenimiento Industrial", "Integración de Sistemas", "Industria 4.0", "Proyecto Final de Automatización"]
+            }
         };
 
         const MAIN_CATEGORIES = ["Todas", ...Object.keys(CATEGORIES_CONFIG)];
 
-        // --- DATOS DE EJEMPLO (MOCK DATA) ---
-
-        const INITIAL_COURSES = [
-          {
-            id: 101,
-            title: "Programación Estructurada en C++",
-            instructor: "Ing. Roberto Méndez",
-            category: "Informática Industrial",
-            subcategory: "Primer Semestre",
-            topic: "Fundamentos de Programación",
-            duration: "40h",
-            level: "Básico",
-            description: "Dominio de la lógica de programación y algoritmos fundamentales.",
-            students: 45,
-            color: "blue",
-            videoEmbed: '<iframe width="100%" height="100%" src="https://www.youtube.com/embed/MNeX4EGtR5Y" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
-            fileTitle: "Guía de Sintaxis C++",
-            fileLink: "https://example.com/guide.pdf",
-            videoTitle: "Intro a C++"
-          },
-          {
-            id: 102,
-            title: "Configuración de Routers Cisco",
-            instructor: "Ing. Laura Paez",
-            category: "Redes y Telecomunicaciones",
-            subcategory: "Segundo Semestre",
-            topic: "Enrutamiento y Conmutación",
-            duration: "35h",
-            level: "Intermedio",
-            description: "Configuración avanzada de dispositivos de red.",
-            students: 32,
-            color: "indigo",
-            fileTitle: "",
-            fileLink: "",
-            videoTitle: "Configuración Básica Router",
-            videoLink: "https://youtube.com/watch?v=example",
-            videoEmbed: ""
-          },
-          {
-            id: 103,
-            title: "PLC Siemens S7-1200",
-            instructor: "Ing. Carlos Ruiz",
-            category: "Automatización y Robótica Industrial",
-            subcategory: "Año 2",
-            topic: "Controladores Lógicos (PLC)",
-            duration: "50h",
-            level: "Avanzado",
-            description: "Automatización con TIA Portal.",
-            students: 28,
-            color: "emerald",
-            fileTitle: "",
-            fileLink: "",
-            videoTitle: "",
-            videoLink: "",
-            videoEmbed: ""
-          }
-        ];
-
-        const INITIAL_USERS = [
-          { id: 1, name: "Ana García", email: "ana@instituto.edu", password: "123", role: "Estudiante", status: "Activo", career: "Informática Industrial", period: "Primer Semestre" },
-          { id: 2, name: "Carlos Ruiz", email: "carlos@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-8821", careers: ["Automatización y Robótica Industrial"] },
-          { id: 3, name: "Ing. Laura Paez", email: "laura@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-1123", careers: ["Redes y Telecomunicaciones"] },
-          { id: 4, name: "Ing. Roberto Méndez", email: "roberto@instituto.edu", password: "123", role: "Instructor", status: "Activo", token: "TKN-4452", careers: ["Informática Industrial", "Redes y Telecomunicaciones", "Automatización y Robótica Industrial"] }
-        ];
-
         // --- COMPONENTES AUXILIARES ---
 
         const Modal = ({ isOpen, onClose, title, children }) => {
-          if (!isOpen) return null;
-          return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
-              <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
-                  <h3 className="font-bold text-lg text-white">{title}</h3>
-                  <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20}/></button>
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+                            <h3 className="font-bold text-lg text-white">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                        </div>
+                        <div className="p-4">{children}</div>
+                    </div>
                 </div>
-                <div className="p-4">{children}</div>
-              </div>
-            </div>
-          );
+            );
         };
 
         const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Sí, continuar", confirmColor = "bg-red-600 hover:bg-red-700" }) => (
-          <Modal isOpen={isOpen} onClose={onClose} title={title}>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="text-amber-500" size={24} />
-              </div>
-              <p className="text-slate-300 mb-6">{message}</p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={onClose} className="px-4 py-2 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-colors">Cancelar</button>
-                <button onClick={onConfirm} className={`px-4 py-2 text-white rounded-lg transition-colors ${confirmColor}`}>{confirmText}</button>
-              </div>
-            </div>
-          </Modal>
+            <Modal isOpen={isOpen} onClose={onClose} title={title}>
+                <div className="text-center">
+                    <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle className="text-amber-500" size={24} />
+                    </div>
+                    <p className="text-slate-300 mb-6">{message}</p>
+                    <div className="flex gap-3 justify-center">
+                        <button onClick={onClose} className="px-4 py-2 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-colors">Cancelar</button>
+                        <button onClick={onConfirm} className={`px-4 py-2 text-white rounded-lg transition-colors ${confirmColor}`}>{confirmText}</button>
+                    </div>
+                </div>
+            </Modal>
         );
 
         const StatCard = ({ title, value, icon: Icon, colorClass, bgClass }) => (
-          <div className="bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-800 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">{title}</p>
-              <h3 className="text-2xl font-bold text-white mt-1">{value}</h3>
+            <div className="bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-800 flex items-center justify-between">
+                <div>
+                    <p className="text-sm font-medium text-slate-400">{title}</p>
+                    <h3 className="text-2xl font-bold text-white mt-1">{value}</h3>
+                </div>
+                <div className={`p-3 rounded-full bg-opacity-10 ${bgClass.replace('bg-', 'bg-opacity-10 bg-')}`}>
+                    <Icon size={24} className={colorClass} />
+                </div>
             </div>
-            <div className={`p-3 rounded-full bg-opacity-10 ${bgClass.replace('bg-', 'bg-opacity-10 bg-')}`}>
-              <Icon size={24} className={colorClass} />
-            </div>
-          </div>
         );
 
-        // --- COMPONENTE LOGIN CON 2FA ---
+        // --- COMPONENTE LOGIN ---
 
         const LoginScreen = ({ onLogin, autoLogoutMessage, users }) => {
-          const [step, setStep] = useState(1);
-          const [email, setEmail] = useState('');
-          const [password, setPassword] = useState('');
-          const [tokenInput, setTokenInput] = useState('');
-          const [error, setError] = useState('');
-          const [tempUser, setTempUser] = useState(null);
+            const [step, setStep] = useState(1);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [tokenInput, setTokenInput] = useState('');
+            const [error, setError] = useState('');
+            const [tempUser, setTempUser] = useState(null);
 
-          const handleCredentialSubmit = (e) => {
-            e.preventDefault();
-            setError('');
+            const handleCredentialSubmit = (e) => {
+                e.preventDefault();
+                setError('');
 
-            if (email === INITIAL_ADMIN_DATA.email && password === INITIAL_ADMIN_DATA.password) {
-              onLogin(INITIAL_ADMIN_DATA);
-              return;
-            }
-            
-            const foundUser = users.find(u => u.email === email && u.password === password);
-            if (foundUser) {
-                if (foundUser.role === 'Instructor') {
-                    setTempUser(foundUser);
-                    setStep(2);
-                } else {
-                    onLogin(foundUser);
-                }
-            } else {
-              setError('Credenciales incorrectas');
-            }
-          };
-
-          const handleTokenSubmit = (e) => {
-            e.preventDefault();
-            if (tempUser && tempUser.token === tokenInput) {
-                onLogin(tempUser);
-            } else {
-                setError('Token de seguridad inválido');
-            }
-          };
-
-          return (
-            <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="bg-blue-600/10 p-8 text-center relative border-b border-slate-800">
-                  <div className="mx-auto bg-blue-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm border border-blue-500/30">
-                    <Shield className="text-blue-400" size={32} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-1">Copa Uyuni Tecnología</h2>
-                  <p className="text-slate-400 text-sm">
-                     {step === 1 ? 'Acceso al Portal Académico' : 'Verificación de Identidad'}
-                  </p>
-                </div>
+                const foundUser = users.find(u => u.email === email && u.password === password);
                 
-                {step === 1 ? (
-                    <form onSubmit={handleCredentialSubmit} className="p-8 space-y-6">
-                    {autoLogoutMessage && (
-                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2 text-amber-500 text-sm">
-                        <Timer size={16} /> Sesión expirada por inactividad.
-                        </div>
-                    )}
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
-                        <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input type="email" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600" 
-                            placeholder="usuario@empresa.com" value={email} onChange={e => setEmail(e.target.value)} />
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
-                        <div className="relative">
-                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                        <input type="password" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600" 
-                            placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
-                        </div>
-                    </div>
+                if (foundUser) {
+                    if (foundUser.role === 'Instructor') {
+                        setTempUser(foundUser);
+                        setStep(2);
+                    } else {
+                        onLogin(foundUser);
+                    }
+                } else {
+                    setError('Credenciales incorrectas o usuario no encontrado.');
+                }
+            };
 
-                    {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
+            const handleTokenSubmit = (e) => {
+                e.preventDefault();
+                if (tempUser && tempUser.token === tokenInput) {
+                    onLogin(tempUser);
+                } else {
+                    setError('Token de seguridad inválido');
+                }
+            };
 
-                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-900/20">
-                        Ingresar <ArrowRight size={18} />
-                    </button>
-                    </form>
-                ) : (
-                    <form onSubmit={handleTokenSubmit} className="p-8 space-y-6">
-                         <div className="text-center mb-4">
-                            <p className="text-slate-300 text-sm">Hola <span className="font-bold text-white">{tempUser?.name}</span>.</p>
-                            <p className="text-slate-400 text-xs mt-1">Por favor ingrese su token de seguridad de docente.</p>
-                         </div>
-
-                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Token de Seguridad</label>
-                            <div className="relative">
-                            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                            <input type="text" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600 tracking-widest text-center" 
-                                placeholder="TKN-XXXX" value={tokenInput} onChange={e => setTokenInput(e.target.value)} />
+            return (
+                <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="bg-blue-600/10 p-8 text-center relative border-b border-slate-800">
+                            <div className="mx-auto bg-blue-500/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm border border-blue-500/30">
+                                <Shield className="text-blue-400" size={32} />
                             </div>
+                            <h2 className="text-2xl font-bold text-white mb-1">Copa Uyuni Tecnología</h2>
+                            <p className="text-slate-400 text-sm">
+                                {step === 1 ? 'Acceso al Portal Académico' : 'Verificación de Identidad'}
+                            </p>
                         </div>
+                        
+                        {step === 1 ? (
+                            <form onSubmit={handleCredentialSubmit} className="p-8 space-y-6">
+                                {autoLogoutMessage && (
+                                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2 text-amber-500 text-sm">
+                                        <Timer size={16} /> Sesión expirada por inactividad.
+                                    </div>
+                                )}
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Correo Electrónico</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input type="email" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600" 
+                                            placeholder="usuario@empresa.com" value={email} onChange={e => setEmail(e.target.value)} />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
+                                    <div className="relative">
+                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input type="password" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600" 
+                                            placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+                                    </div>
+                                </div>
 
-                         {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
+                                {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
 
-                         <div className="flex gap-3">
-                             <button type="button" onClick={() => {setStep(1); setError(''); setTokenInput('');}} className="w-1/3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl font-bold transition-all">
-                                Volver
-                             </button>
-                             <button type="submit" className="w-2/3 bg-green-600 hover:bg-green-500 text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-900/20">
-                                Verificar <CheckCircle size={18} />
-                             </button>
-                         </div>
-                    </form>
-                )}
+                                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2 shadow-lg shadow-blue-900/20">
+                                    Ingresar <ArrowRight size={18} />
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleTokenSubmit} className="p-8 space-y-6">
+                                <div className="text-center mb-4">
+                                    <p className="text-slate-300 text-sm">Hola <span className="font-bold text-white">{tempUser?.name}</span>.</p>
+                                    <p className="text-slate-400 text-xs mt-1">Por favor ingrese su token de seguridad de docente.</p>
+                                </div>
 
-              </div>
-              <p className="mt-8 text-slate-600 text-xs">© Model Bolivia S.A. • Sistema Seguro</p>
-            </div>
-          );
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1">Token de Seguridad</label>
+                                    <div className="relative">
+                                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input type="text" required className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-white placeholder-slate-600 tracking-widest text-center" 
+                                            placeholder="TKN-XXXX" value={tokenInput} onChange={e => setTokenInput(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
+
+                                <div className="flex gap-3">
+                                    <button type="button" onClick={() => {setStep(1); setError(''); setTokenInput('');}} className="w-1/3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl font-bold transition-all">
+                                        Volver
+                                    </button>
+                                    <button type="submit" className="w-2/3 bg-green-600 hover:bg-green-500 text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2 shadow-lg shadow-green-900/20">
+                                        Verificar <CheckCircle size={18} />
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                    <div className="mt-8 flex items-center gap-2 text-slate-600 text-xs">
+                        <Cloud size={14} /> Conectado a la Base de Datos Remota
+                    </div>
+                    <p className="mt-2 text-slate-600 text-xs">© Model Bolivia S.A. • Sistema Seguro</p>
+                </div>
+            );
         };
 
         // --- COMPONENTE PRINCIPAL ---
 
         function App() {
-          const [currentUser, setCurrentUser] = useState(null);
-          const [activeTab, setActiveTab] = useState('dashboard');
-          const [autoLogoutMsg, setAutoLogoutMsg] = useState(false);
-          const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+            const [firebaseUser, setFirebaseUser] = useState(null);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [autoLogoutMsg, setAutoLogoutMsg] = useState(false);
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-          const [usersList, setUsersList] = useState(INITIAL_USERS);
-          const [courses, setCourses] = useState(INITIAL_COURSES);
-          const [myEnrollments, setMyEnrollments] = useState([]);
+            const [usersList, setUsersList] = useState([]);
+            const [courses, setCourses] = useState([]);
+            const [enrollments, setEnrollments] = useState([]);
+            const [myEnrollments, setMyEnrollments] = useState([]);
 
-          const [selectedCategory, setSelectedCategory] = useState('Todas');
-          const [selectedSubcategory, setSelectedSubcategory] = useState('Todas');
-          const [selectedTopic, setSelectedTopic] = useState('Todos');
-          const [searchTerm, setSearchTerm] = useState('');
+            const [selectedCategory, setSelectedCategory] = useState('Todas');
+            const [selectedSubcategory, setSelectedSubcategory] = useState('Todas');
+            const [selectedTopic, setSelectedTopic] = useState('Todos');
+            const [searchTerm, setSearchTerm] = useState('');
 
-          const [showCourseModal, setShowCourseModal] = useState(false);
-          const [showVideoModal, setShowVideoModal] = useState(null);
-          const [logoutModal, setLogoutModal] = useState(false);
-          const [deleteUserModal, setDeleteUserModal] = useState({ isOpen: false, userId: null });
-          const [showProfileModal, setShowProfileModal] = useState(false);
-          
-          const [userFormMode, setUserFormMode] = useState('create'); 
-          const [editingUser, setEditingUser] = useState(null);
-          const [userFormData, setUserFormData] = useState({ 
-            name: '', email: '', role: 'Estudiante', password: '', 
-            career: 'Informática Industrial', period: 'Primer Semestre',
-            careers: [], token: '' 
-          });
-
-          const [courseFormMode, setCourseFormMode] = useState('create');
-          const [editingCourse, setEditingCourse] = useState(null);
-          const [newCourse, setNewCourse] = useState({
-            title: '', instructor: '', category: 'Informática Industrial', 
-            subcategory: 'Primer Semestre', topic: 'Fundamentos de Programación', 
-            duration: '', description: '', level: 'Básico', 
-            fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
-          });
-
-          const [newProfilePassword, setNewProfilePassword] = useState('');
-
-          useEffect(() => {
-            if (!currentUser) return;
-            let timer;
-            const resetTimer = () => {
-              clearTimeout(timer);
-              timer = setTimeout(() => {
-                setCurrentUser(null);
-                setAutoLogoutMsg(true);
-                setActiveTab('dashboard');
-              }, INACTIVITY_LIMIT_MS);
-            };
-            window.addEventListener('mousemove', resetTimer);
-            window.addEventListener('keydown', resetTimer);
-            window.addEventListener('click', resetTimer);
-            resetTimer();
-            return () => {
-              clearTimeout(timer);
-              window.removeEventListener('mousemove', resetTimer);
-              window.removeEventListener('keydown', resetTimer);
-              window.removeEventListener('click', resetTimer);
-            };
-          }, [currentUser]);
-
-          useEffect(() => { setSelectedSubcategory('Todas'); setSelectedTopic('Todos'); }, [selectedCategory]);
-          useEffect(() => { setSelectedTopic('Todos'); }, [selectedSubcategory]);
-
-          const handleLogin = (user) => {
-            setCurrentUser(user);
-            setAutoLogoutMsg(false);
-          };
-
-          const confirmLogout = () => {
-            setCurrentUser(null);
-            setLogoutModal(false);
-          };
-
-          const handleEnroll = (course) => {
-            if (!myEnrollments.find(c => c.id === course.id)) {
-              setMyEnrollments([...myEnrollments, { ...course, enrolledAt: new Date().toLocaleDateString() }]);
-            }
-          };
-
-          const handleUnenroll = (courseId) => {
-            setMyEnrollments(myEnrollments.filter(c => c.id !== courseId));
-          };
-
-          const handleCourseSubmit = (e) => {
-            e.preventDefault();
-            if (courseFormMode === 'edit' && editingCourse) {
-               setCourses(courses.map(c => c.id === editingCourse.id ? { ...newCourse, id: c.id, students: c.students, color: c.color } : c));
-               setEditingCourse(null);
-            } else {
-               const course = { ...newCourse, id: Date.now(), students: 0, color: 'slate' };
-               setCourses([...courses, course]);
-            }
-            setShowCourseModal(false);
-            setNewCourse({
-              title: '', instructor: '', category: 'Informática Industrial', subcategory: 'Primer Semestre', topic: 'Fundamentos de Programación',
-              duration: '', description: '', level: 'Básico', fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
-            });
-            setCourseFormMode('create');
-          };
-
-          const startEditCourse = (course) => {
-            setEditingCourse(course);
-            setNewCourse({
-              title: course.title, instructor: course.instructor, category: course.category, subcategory: course.subcategory, topic: course.topic,
-              duration: course.duration, description: course.description, level: course.level, fileTitle: course.fileTitle || '', fileLink: course.fileLink || '', videoTitle: course.videoTitle || '', videoLink: course.videoLink || '', videoEmbed: course.videoEmbed || ''
-            });
-            setCourseFormMode('edit');
-            setShowCourseModal(true);
-          };
-
-          const openNewCourseModal = () => {
-              setCourseFormMode('create');
-              let defaultCat = 'Informática Industrial';
-              if (currentUser.role === 'Instructor' && currentUser.careers && currentUser.careers.length > 0) {
-                  defaultCat = currentUser.careers[0];
-              }
-              const defaultSub = Object.keys(CATEGORIES_CONFIG[defaultCat])[0];
-              const defaultTopic = CATEGORIES_CONFIG[defaultCat][defaultSub][0];
-              setNewCourse({
-                title: '', 
-                instructor: currentUser.role === 'Instructor' ? currentUser.name : '', 
-                category: defaultCat, 
-                subcategory: defaultSub, 
-                topic: defaultTopic,
-                duration: '', description: '', level: 'Básico', fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
-              });
-              setShowCourseModal(true);
-          };
-
-          const generateToken = () => {
-              return `TKN-${Math.floor(1000 + Math.random() * 9000)}`;
-          };
-
-          const handleAutoGenerate = () => {
-            if (!userFormData.name) {
-                alert("Ingrese un nombre primero para generar credenciales.");
-                return;
-            }
-            const cleanName = userFormData.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '.');
-            const firstName = userFormData.name.trim().split(' ')[0];
-            const cleanFirstName = firstName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '');
-            const generatedPass = `${cleanFirstName.charAt(0).toUpperCase() + cleanFirstName.slice(1).toLowerCase()}123`;
-
-            setUserFormData(prev => ({
-                ...prev,
-                email: `${cleanName}@instituto.edu`,
-                password: generatedPass
-            }));
-          };
-
-          const handleUserSubmit = (e) => {
-            e.preventDefault();
+            const [showCourseModal, setShowCourseModal] = useState(false);
+            const [showVideoModal, setShowVideoModal] = useState(null);
+            const [logoutModal, setLogoutModal] = useState(false);
+            const [deleteUserModal, setDeleteUserModal] = useState({ isOpen: false, userId: null });
+            const [showProfileModal, setShowProfileModal] = useState(false);
             
-            let finalToken = userFormData.token;
-            if (userFormData.role === 'Instructor' && !finalToken) {
-                finalToken = generateToken();
-            } else if (userFormData.role !== 'Instructor') {
-                finalToken = null;
-            }
-
-            const userDataToSave = {
-                ...userFormData,
-                token: finalToken,
-                password: userFormData.password || '123'
-            };
-
-            if (userFormMode === 'edit' && editingUser) {
-              setUsersList(usersList.map(u => u.id === editingUser.id ? { ...u, ...userDataToSave } : u));
-              setEditingUser(null);
-            } else {
-              setUsersList([...usersList, { ...userDataToSave, id: Date.now(), status: 'Activo' }]);
-            }
-            setUserFormData({ name: '', email: '', role: 'Estudiante', password: '', career: 'Informática Industrial', period: 'Primer Semestre', careers: [], token: '' });
-            setUserFormMode('create');
-          };
-
-          const startEditUser = (user) => {
-            setEditingUser(user);
-            setUserFormData({ 
-              name: user.name, 
-              email: user.email, 
-              role: user.role, 
-              password: user.password,
-              career: user.career || 'Informática Industrial',
-              period: user.period || 'Primer Semestre',
-              careers: user.careers || [],
-              token: user.token || ''
+            const [userFormMode, setUserFormMode] = useState('create'); 
+            const [editingUser, setEditingUser] = useState(null);
+            const [userFormData, setUserFormData] = useState({ 
+                name: '', email: '', role: 'Estudiante', password: '', 
+                career: 'Informática Industrial', period: 'Primer Semestre',
+                careers: [], token: '' 
             });
-            setUserFormMode('edit');
-          };
 
-          const cancelEditUser = () => {
-            setEditingUser(null);
-            setUserFormData({ name: '', email: '', role: 'Estudiante', password: '', career: 'Informática Industrial', period: 'Primer Semestre', careers: [], token: '' });
-            setUserFormMode('create');
-          };
+            const [courseFormMode, setCourseFormMode] = useState('create');
+            const [editingCourse, setEditingCourse] = useState(null);
+            const [newCourse, setNewCourse] = useState({
+                title: '', instructor: '', category: 'Informática Industrial', 
+                subcategory: 'Primer Semestre', topic: 'Fundamentos de Programación', 
+                duration: '', description: '', level: 'Básico', 
+                fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
+            });
 
-          const confirmDeleteUser = () => {
-            setUsersList(usersList.filter(u => u.id !== deleteUserModal.userId));
-            if (editingUser && editingUser.id === deleteUserModal.userId) cancelEditUser();
-            setDeleteUserModal({ isOpen: false, userId: null });
-          };
+            const [newProfilePassword, setNewProfilePassword] = useState('');
 
-          const toggleCareer = (careerName) => {
-            const currentCareers = userFormData.careers || [];
-            if (currentCareers.includes(careerName)) {
-              setUserFormData({...userFormData, careers: currentCareers.filter(c => c !== careerName)});
-            } else {
-              setUserFormData({...userFormData, careers: [...currentCareers, careerName]});
-            }
-          };
+            // --- EFECTOS ---
 
-          const handleUpdatePassword = (e) => {
-            e.preventDefault();
-            if (!newProfilePassword.trim()) return;
-
-            if (currentUser.role !== 'Administrador') {
-                setUsersList(usersList.map(u => u.id === currentUser.id ? { ...u, password: newProfilePassword } : u));
-            }
-            
-            setCurrentUser({...currentUser, password: newProfilePassword});
-            setShowProfileModal(false);
-            setNewProfilePassword('');
-            alert("Contraseña actualizada correctamente");
-          };
-
-          const canManageUsers = currentUser?.role === 'Administrador';
-          const canCreateCourses = currentUser?.role === 'Administrador' || currentUser?.role === 'Instructor';
-          const canEditCourses = currentUser?.role === 'Administrador';
-
-          const getCategoryIcon = (cat) => {
-            switch(cat) {
-              case 'Informática Industrial': return <Monitor size={16} />;
-              case 'Redes y Telecomunicaciones': return <Wifi size={16} />;
-              case 'Automatización y Robótica Industrial': return <Cpu size={16} />;
-              default: return <BookOpen size={16} />;
-            }
-          };
-
-          const getColorClasses = (colorName) => {
-              const maps = {
-                blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-                indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
-                emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-                purple: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
-                slate: { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
-                green: { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' },
-                yellow: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20' },
-              };
-              return maps[colorName] || maps.slate;
-          };
-          
-          const getLevelColor = (level) => {
-            switch(level) {
-              case 'Básico': return 'text-green-400';
-              case 'Intermedio': return 'text-yellow-400';
-              case 'Avanzado': return 'text-red-400';
-              default: return 'text-slate-400';
-            }
-          };
-
-          const filteredCourses = courses.filter(c => {
-            const matchCat = selectedCategory === 'Todas' || c.category === selectedCategory;
-            const matchSub = selectedSubcategory === 'Todas' || c.subcategory === selectedSubcategory;
-            const matchTop = selectedTopic === 'Todos' || c.topic === selectedTopic;
-            const matchSearch = c.title.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchCat && matchSub && matchTop && matchSearch;
-          });
-
-          if (!currentUser) {
-            return <LoginScreen onLogin={handleLogin} autoLogoutMessage={autoLogoutMsg} users={usersList} />;
-          }
-
-          return (
-            <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
-              
-              {/* SIDEBAR */}
-              <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 border-r border-slate-800 transform transition-transform duration-300 md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <div className="h-full flex flex-col">
-                  <div className="p-6 border-b border-slate-800 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/50">DC</div>
-                    <span className="font-bold text-lg tracking-tight text-white">Data Center <span className="text-blue-400">Aula Digital ITSO</span></span>
-                  </div>
-                  
-                  <div className="p-4 border-b border-slate-800 bg-slate-900/50">
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Gestión y Administración</p>
-                    <p className="text-xs font-semibold text-slate-300 leading-tight">Copa Uyuni Tecnología</p>
-                    <p className="text-[10px] text-slate-500">Model Bolivia S.A.</p>
-                  </div>
-
-                  <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                      <Layout size={18} /> Dashboard
-                    </button>
-                    <button onClick={() => setActiveTab('catalog')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'catalog' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                      <BookOpen size={18} /> Oferta Académica
-                    </button>
-                    <button onClick={() => setActiveTab('available_courses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'available_courses' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                      <Library size={18} /> Cursos Disponibles
-                    </button>
-                    
-                    {(canManageUsers || canCreateCourses) && (
-                      <div className="mt-6 mb-2 px-4 text-xs font-bold text-slate-600 uppercase">Gestión</div>
-                    )}
-
-                    {canManageUsers && (
-                      <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                        <Users size={18} /> Usuarios
-                      </button>
-                    )}
-                    
-                    {canCreateCourses && (
-                      <button onClick={openNewCourseModal} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 mt-2 transition-colors">
-                        <Plus size={18} /> Nuevo Curso
-                      </button>
-                    )}
-
-                    <div className="mt-6 mb-2 px-4 text-xs font-bold text-slate-600 uppercase">Cuenta</div>
-                    <button onClick={() => setShowProfileModal(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-                       <Settings size={18} /> Mi Perfil
-                    </button>
-                  </nav>
-
-                  <div className="p-4 border-t border-slate-800">
-                    <button onClick={() => setLogoutModal(true)} className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                      <LogOut size={18} /> Cerrar Sesión
-                    </button>
-                  </div>
-                </div>
-              </aside>
-
-              {/* MOBILE OVERLAY */}
-              {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 z-20 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
-
-              {/* MAIN CONTENT */}
-              <div className="flex-1 flex flex-col min-w-0">
+            useEffect(() => {
+                const initAuth = async () => {
+                    await signInAnonymously(auth);
+                };
+                initAuth();
                 
-                {/* HEADER */}
-                <header className="bg-slate-900 border-b border-slate-800 h-16 flex items-center justify-between px-4 md:px-8">
-                  <div className="flex items-center gap-4">
-                    <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}><Menu size={24}/></button>
-                    <h2 className="text-lg font-bold text-white">
-                      {activeTab === 'dashboard' ? 'Panel de Control' : activeTab === 'catalog' ? 'Oferta Académica' : activeTab === 'available_courses' ? 'Cursos Disponibles' : 'Gestión de Usuarios'}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right hidden md:block">
-                      <div className="text-sm font-bold text-white">{currentUser.name}</div>
-                      <div className="text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full inline-block">{currentUser.role}</div>
-                    </div>
-                    <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-md shadow-blue-900/30">
-                      {currentUser.name.charAt(0)}
-                    </div>
-                  </div>
-                </header>
+                const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+                    setFirebaseUser(user);
+                });
+                return () => unsubscribeAuth();
+            }, []);
 
-                {/* CONTENT SCROLL */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                  <div className="max-w-7xl mx-auto space-y-8">
+            useEffect(() => {
+                if (!firebaseUser) return;
+
+                const unsubUsers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snapshot) => {
+                    const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setUsersList(usersData);
                     
-                    {/* DASHBOARD VIEW */}
-                    {activeTab === 'dashboard' && (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <StatCard title="Cursos Disponibles" value={courses.length} icon={BookOpen} bgClass="bg-blue-600" colorClass="text-blue-400" />
-                          <StatCard title="Mis Inscripciones" value={myEnrollments.length} icon={CheckCircle} bgClass="bg-green-600" colorClass="text-green-400" />
-                          {canManageUsers && (
-                             <StatCard title="Total Usuarios" value={usersList.length + 1} icon={Users} bgClass="bg-purple-600" colorClass="text-purple-400" />
-                          )}
-                          <StatCard title="Certificados" value="0" icon={Award} bgClass="bg-yellow-600" colorClass="text-yellow-400" />
-                        </div>
-                        
-                        <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-                          <div className="p-5 border-b border-slate-800"><h3 className="font-bold text-white">Mis Inscripciones Activas</h3></div>
-                          {myEnrollments.length === 0 ? (
-                            <div className="p-8 text-center text-slate-500">
-                              <p>No estás inscrito en ningún curso.</p>
-                              <button onClick={() => setActiveTab('catalog')} className="text-blue-400 hover:underline mt-2">Ir al catálogo</button>
-                            </div>
-                          ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-950 text-slate-400"><tr><th className="px-6 py-3">Curso</th><th className="px-6 py-3">Instructor</th><th className="px-6 py-3 text-right">Acción</th></tr></thead>
-                                <tbody className="divide-y divide-slate-800">{myEnrollments.map(c => (<tr key={c.id} className="hover:bg-slate-800/50"><td className="px-6 py-4 font-medium text-slate-200">{c.title}</td><td className="px-6 py-4 text-slate-400">{c.instructor}</td><td className="px-6 py-4 text-right"><button onClick={() => handleUnenroll(c.id)} className="text-red-400 hover:text-red-300">Cancelar</button></td></tr>))}</tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    if (snapshot.empty) {
+                        SEED_USERS.forEach(async (u) => {
+                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'users'), u);
+                        });
+                    }
+                });
 
-                    {/* CATALOG VIEW / AVAILABLE COURSES VIEW */}
-                    {(activeTab === 'catalog' || activeTab === 'available_courses') && (
-                      <>
-                        <div className="bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-800 space-y-4">
-                           <div className="flex flex-col md:flex-row gap-4 justify-between">
-                            <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-                              {MAIN_CATEGORIES.map(cat => (
-                                <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}>{cat}</button>
-                              ))}
-                            </div>
-                            <div className="relative w-full md:w-64 shrink-0">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                              <input type="text" placeholder="Buscar curso..." className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-600" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                            </div>
-                          </div>
-                          
-                          {/* Subfilters */}
-                          {selectedCategory !== 'Todas' && (
-                            <div className="border-t border-slate-800 pt-3 space-y-3">
-                              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                                <span className="text-xs font-bold text-slate-500 uppercase mr-2 shrink-0"><Filter size={12}/> Periodo:</span>
-                                <button onClick={() => setSelectedSubcategory('Todas')} className={`px-2.5 py-1 rounded text-xs border ${selectedSubcategory === 'Todas' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todas</button>
-                                {Object.keys(CATEGORIES_CONFIG[selectedCategory]).map(sub => (
-                                  <button key={sub} onClick={() => setSelectedSubcategory(sub)} className={`px-2.5 py-1 rounded text-xs border whitespace-nowrap ${selectedSubcategory === sub ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{sub}</button>
-                                ))}
-                              </div>
-                              
-                              {selectedSubcategory !== 'Todas' && (
-                                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                                  <span className="text-xs font-bold text-slate-500 uppercase mr-2 shrink-0"><Tag size={12}/> Materia:</span>
-                                  <button onClick={() => setSelectedTopic('Todos')} className={`px-2.5 py-1 rounded text-xs border ${selectedTopic === 'Todos' ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todos</button>
-                                  {CATEGORIES_CONFIG[selectedCategory][selectedSubcategory]?.map(topic => (
-                                    <button key={topic} onClick={() => setSelectedTopic(topic)} className={`px-2.5 py-1 rounded text-xs border whitespace-nowrap ${selectedTopic === topic ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{topic}</button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                const unsubCourses = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), (snapshot) => {
+                    const coursesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setCourses(coursesData);
+                    
+                    if (snapshot.empty) {
+                        SEED_COURSES.forEach(async (c) => {
+                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), c);
+                        });
+                    }
+                });
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {filteredCourses.map(course => {
-                            const isEnrolled = myEnrollments.some(m => m.id === course.id);
-                            const colors = getColorClasses(course.color); 
+                const unsubEnrollments = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), (snapshot) => {
+                    const enrollsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setEnrollments(enrollsData);
+                });
+
+                return () => {
+                    unsubUsers();
+                    unsubCourses();
+                    unsubEnrollments();
+                };
+            }, [firebaseUser]);
+
+            useEffect(() => {
+                if (currentUser) {
+                    const myEnrolls = enrollments.filter(e => e.userId === currentUser.id);
+                    const enrolledCourses = myEnrolls.map(e => {
+                        const course = courses.find(c => c.id === e.courseId);
+                        return course ? { ...course, enrolledAt: e.enrolledAt, enrollmentId: e.id } : null;
+                    }).filter(c => c !== null);
+                    setMyEnrollments(enrolledCourses);
+                }
+            }, [currentUser, enrollments, courses]);
+
+            useEffect(() => {
+                if (!currentUser) return;
+                let timer;
+                const resetTimer = () => {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        setCurrentUser(null);
+                        setAutoLogoutMsg(true);
+                        setActiveTab('dashboard');
+                    }, INACTIVITY_LIMIT_MS);
+                };
+                window.addEventListener('mousemove', resetTimer);
+                window.addEventListener('keydown', resetTimer);
+                window.addEventListener('click', resetTimer);
+                resetTimer();
+                return () => {
+                    clearTimeout(timer);
+                    window.removeEventListener('mousemove', resetTimer);
+                    window.removeEventListener('keydown', resetTimer);
+                    window.removeEventListener('click', resetTimer);
+                };
+            }, [currentUser]);
+
+            useEffect(() => { setSelectedSubcategory('Todas'); setSelectedTopic('Todos'); }, [selectedCategory]);
+            useEffect(() => { setSelectedTopic('Todos'); }, [selectedSubcategory]);
+
+            const handleLogin = (user) => {
+                setCurrentUser(user);
+                setAutoLogoutMsg(false);
+            };
+
+            const confirmLogout = () => {
+                setCurrentUser(null);
+                setLogoutModal(false);
+            };
+
+            // --- HANDLERS ---
+
+            const handleEnroll = async (course) => {
+                if (!currentUser) return;
+                const exists = enrollments.find(e => e.userId === currentUser.id && e.courseId === course.id);
+                if (!exists) {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'enrollments'), {
+                        userId: currentUser.id,
+                        courseId: course.id,
+                        enrolledAt: new Date().toLocaleDateString()
+                    });
+                }
+            };
+
+            const handleUnenroll = async (courseId) => {
+                const enrollment = enrollments.find(e => e.userId === currentUser.id && e.courseId === courseId);
+                if (enrollment) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'enrollments', enrollment.id));
+                }
+            };
+
+            const handleCourseSubmit = async (e) => {
+                e.preventDefault();
+                const courseData = { ...newCourse, color: 'slate' };
+                
+                if (courseFormMode === 'edit' && editingCourse) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', editingCourse.id), courseData);
+                    setEditingCourse(null);
+                } else {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), courseData);
+                }
+                
+                setShowCourseModal(false);
+                setNewCourse({
+                    title: '', instructor: '', category: 'Informática Industrial', subcategory: 'Primer Semestre', topic: 'Fundamentos de Programación',
+                    duration: '', description: '', level: 'Básico', fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
+                });
+                setCourseFormMode('create');
+            };
+
+            const startEditCourse = (course) => {
+                setEditingCourse(course);
+                setNewCourse({
+                    title: course.title, instructor: course.instructor, category: course.category, subcategory: course.subcategory, topic: course.topic,
+                    duration: course.duration, description: course.description, level: course.level || 'Básico', fileTitle: course.fileTitle || '', fileLink: course.fileLink || '', videoTitle: course.videoTitle || '', videoLink: course.videoLink || '', videoEmbed: course.videoEmbed || ''
+                });
+                setCourseFormMode('edit');
+                setShowCourseModal(true);
+            };
+
+            const openNewCourseModal = () => {
+                setCourseFormMode('create');
+                let defaultCat = 'Informática Industrial';
+                if (currentUser.role === 'Instructor' && currentUser.careers && currentUser.careers.length > 0) {
+                    defaultCat = currentUser.careers[0];
+                }
+                const defaultSub = Object.keys(CATEGORIES_CONFIG[defaultCat])[0];
+                const defaultTopic = CATEGORIES_CONFIG[defaultCat][defaultSub][0];
+                setNewCourse({
+                    title: '', 
+                    instructor: currentUser.role === 'Instructor' ? currentUser.name : '', 
+                    category: defaultCat, 
+                    subcategory: defaultSub, 
+                    topic: defaultTopic,
+                    duration: '', description: '', level: 'Básico', fileTitle: '', fileLink: '', videoTitle: '', videoLink: '', videoEmbed: ''
+                });
+                setShowCourseModal(true);
+            };
+
+            const generateToken = () => {
+                return `TKN-${Math.floor(1000 + Math.random() * 9000)}`;
+            };
+
+            const handleAutoGenerate = () => {
+                if (!userFormData.name) {
+                    alert("Ingrese un nombre primero para generar credenciales.");
+                    return;
+                }
+                const cleanName = userFormData.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '.');
+                const firstName = userFormData.name.trim().split(' ')[0];
+                const cleanFirstName = firstName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '');
+                const generatedPass = `${cleanFirstName.charAt(0).toUpperCase() + cleanFirstName.slice(1).toLowerCase()}123`;
+
+                setUserFormData(prev => ({
+                    ...prev,
+                    email: `${cleanName}@instituto.edu`,
+                    password: generatedPass
+                }));
+            };
+
+            const handleUserSubmit = async (e) => {
+                e.preventDefault();
+                
+                let finalToken = userFormData.token;
+                if (userFormData.role === 'Instructor' && !finalToken) {
+                    finalToken = generateToken();
+                } else if (userFormData.role !== 'Instructor') {
+                    finalToken = null;
+                }
+
+                const userDataToSave = {
+                    name: userFormData.name,
+                    email: userFormData.email,
+                    role: userFormData.role,
+                    password: userFormData.password || '123',
+                    status: 'Activo',
+                    token: finalToken || null,
+                    career: userFormData.role === 'Estudiante' ? userFormData.career : null,
+                    period: userFormData.role === 'Estudiante' ? userFormData.period : null,
+                    careers: userFormData.role === 'Instructor' ? userFormData.careers : null
+                };
+
+                if (userFormMode === 'edit' && editingUser) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', editingUser.id), userDataToSave);
+                    setEditingUser(null);
+                } else {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'users'), userDataToSave);
+                }
+                setUserFormData({ name: '', email: '', role: 'Estudiante', password: '', career: 'Informática Industrial', period: 'Primer Semestre', careers: [], token: '' });
+                setUserFormMode('create');
+            };
+
+            const startEditUser = (user) => {
+                setEditingUser(user);
+                setUserFormData({ 
+                    name: user.name, 
+                    email: user.email, 
+                    role: user.role, 
+                    password: user.password,
+                    career: user.career || 'Informática Industrial',
+                    period: user.period || 'Primer Semestre',
+                    careers: user.careers || [],
+                    token: user.token || ''
+                });
+                setUserFormMode('edit');
+            };
+
+            const cancelEditUser = () => {
+                setEditingUser(null);
+                setUserFormData({ name: '', email: '', role: 'Estudiante', password: '', career: 'Informática Industrial', period: 'Primer Semestre', careers: [], token: '' });
+                setUserFormMode('create');
+            };
+
+            const confirmDeleteUser = async () => {
+                if (deleteUserModal.userId) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', deleteUserModal.userId));
+                    if (editingUser && editingUser.id === deleteUserModal.userId) cancelEditUser();
+                    setDeleteUserModal({ isOpen: false, userId: null });
+                }
+            };
+
+            const toggleCareer = (careerName) => {
+                const currentCareers = userFormData.careers || [];
+                if (currentCareers.includes(careerName)) {
+                    setUserFormData({...userFormData, careers: currentCareers.filter(c => c !== careerName)});
+                } else {
+                    setUserFormData({...userFormData, careers: [...currentCareers, careerName]});
+                }
+            };
+
+            const handleUpdatePassword = async (e) => {
+                e.preventDefault();
+                if (!newProfilePassword.trim()) return;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.id), {
+                    password: newProfilePassword
+                });
+                setCurrentUser({...currentUser, password: newProfilePassword});
+                setShowProfileModal(false);
+                setNewProfilePassword('');
+                alert("Contraseña actualizada correctamente");
+            };
+
+            const canManageUsers = currentUser?.role === 'Administrador';
+            const canCreateCourses = currentUser?.role === 'Administrador' || currentUser?.role === 'Instructor';
+            const canEditCourses = currentUser?.role === 'Administrador';
+
+            const filteredCourses = courses.filter(c => {
+                if (searchTerm) {
+                    return c.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           c.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           c.category.toLowerCase().includes(searchTerm.toLowerCase());
+                }
+                if (selectedCategory !== 'Todas' && c.category !== selectedCategory) return false;
+                if (selectedSubcategory !== 'Todas' && c.subcategory !== selectedSubcategory) return false;
+                if (selectedTopic !== 'Todos' && c.topic !== selectedTopic) return false;
+                return true;
+            });
+
+            const getCategoryIcon = (cat) => {
+                switch(cat) {
+                    case 'Informática Industrial': return <Monitor size={16} />;
+                    case 'Redes y Telecomunicaciones': return <Wifi size={16} />;
+                    case 'Automatización y Robótica Industrial': return <Cpu size={16} />;
+                    default: return <BookOpen size={16} />;
+                }
+            };
+
+            const getColorClasses = (colorName) => {
+                const maps = {
+                    blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
+                    indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
+                    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
+                    purple: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
+                    slate: { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
+                    green: { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' },
+                    yellow: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/20' },
+                };
+                return maps[colorName] || maps.slate;
+            };
+            
+            const getLevelColor = (level) => {
+                switch(level) {
+                    case 'Básico': return 'text-green-400';
+                    case 'Intermedio': return 'text-yellow-400';
+                    case 'Avanzado': return 'text-red-400';
+                    default: return 'text-slate-400';
+                }
+            };
+
+            if (!currentUser) {
+                return <LoginScreen onLogin={handleLogin} autoLogoutMessage={autoLogoutMsg} users={usersList} />;
+            }
+
+            return (
+                <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
+                    <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 border-r border-slate-800 transform transition-transform duration-300 md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        <div className="h-full flex flex-col">
+                            <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/50">DC</div>
+                                <span className="font-bold text-lg tracking-tight text-white">Data Center <span className="text-blue-400">Aula Digital ITSO</span></span>
+                            </div>
                             
-                            if (activeTab === 'available_courses') {
-                                return (
-                                  <div key={course.id} className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden flex flex-col hover:border-blue-500/50 transition-all relative group shadow-lg">
-                                     {canEditCourses && (
-                                      <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEditCourse(course)} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-full shadow-lg border border-white/10" title="Editar Curso"><Pencil size={14} /></button>
-                                      </div>
-                                    )}
-                                    <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-900 relative">
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            {course.videoEmbed ? <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center backdrop-blur-sm border border-blue-500/30 text-blue-400"><PlayCircle size={24} /></div> : <div className="text-slate-600">{getCategoryIcon(course.category)}</div>}
-                                        </div>
-                                        <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end">
-                                            <span className="text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-white px-2 py-1 rounded border border-slate-700">{course.category}</span>
-                                        </div>
-                                    </div>
-                                    <div className="p-5 flex-1 flex flex-col">
-                                        <h4 className="font-bold text-white text-lg mb-1 line-clamp-2 leading-tight">{course.title}</h4>
-                                        <p className="text-xs text-slate-400 mb-3 flex items-center gap-1"><User size={12}/> {course.instructor}</p>
-                                        <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-800/50">
-                                            <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-bold">Nivel</span><div className="flex items-center gap-1 text-xs font-medium"><Signal size={12} className={getLevelColor(course.level)} /><span className="text-slate-300">{course.level}</span></div></div>
-                                            <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-bold">Duración</span><span className="text-xs font-medium text-slate-300 flex items-center gap-1"><Clock size={12}/> {course.duration}</span></div>
-                                            <div className="flex flex-col ml-auto"><span className="text-[10px] text-slate-500 uppercase font-bold">Valoración</span><div className="flex items-center gap-0.5 text-yellow-500"><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" opacity={0.5} /></div></div>
-                                        </div>
-                                        <p className="text-sm text-slate-400 mb-4 line-clamp-2">{course.description}</p>
-                                        <div className="mt-auto space-y-2">
-                                            <p className="text-xs font-bold text-slate-500 uppercase mb-2">Recursos de Aprendizaje</p>
-                                            {course.videoEmbed ? (
-                                                 <button onClick={() => setShowVideoModal(course)} className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/80 transition-all group/btn">
-                                                    <div className="flex items-center gap-2"><div className="p-1.5 rounded bg-blue-500/10 text-blue-400"><PlayCircle size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Video Clase</p><p className="text-[10px] text-slate-500">{course.videoTitle || "Ver lección"}</p></div></div>
-                                                    <ArrowRight size={14} className="text-slate-600 group-hover/btn:text-blue-400 transition-colors" />
-                                                 </button>
-                                            ) : (course.videoLink && <a href={course.videoLink} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/80 transition-all group/btn"><div className="flex items-center gap-2"><div className="p-1.5 rounded bg-blue-500/10 text-blue-400"><ExternalLink size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Video Externo</p><p className="text-[10px] text-slate-500">Ver en plataforma</p></div></div></a>)}
-                                            {course.fileLink && <a href={course.fileLink} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/80 transition-all group/btn"><div className="flex items-center gap-2"><div className="p-1.5 rounded bg-green-500/10 text-green-400"><FileText size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Material de Lectura</p><p className="text-[10px] text-slate-500">{course.fileTitle || "Descargar PDF"}</p></div></div><Download size={14} className="text-slate-600 group-hover/btn:text-green-400 transition-colors" /></a>}
-                                        </div>
-                                    </div>
-                                  </div>
-                                );
-                            } else {
-                                return (
-                                  <div key={course.id} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden flex flex-col hover:shadow-lg hover:shadow-black/20 hover:border-slate-700 transition-all">
-                                    <div className="h-32 bg-slate-800 flex items-center justify-center border-b border-slate-800"><div className="text-slate-600">{getCategoryIcon(course.category)}</div></div>
-                                    <div className="p-5 flex-1 flex flex-col">
-                                      <div className="mb-2"><span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">{course.category}</span></div>
-                                      <h4 className="font-bold text-white mb-2 line-clamp-2">{course.title}</h4>
-                                      <p className="text-sm text-slate-400 mb-4 line-clamp-3 flex-1">{course.description}</p>
-                                      <div className="flex items-center text-xs text-slate-500 mb-4 gap-3"><span className="flex items-center gap-1"><Clock size={12}/> {course.duration}</span><span className="flex items-center gap-1"><User size={12}/> {course.instructor}</span></div>
-                                      <div className="pt-4 border-t border-slate-800 mt-auto"><button onClick={() => handleEnroll(course)} disabled={isEnrolled} className={`w-full py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors ${isEnrolled ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>{isEnrolled ? <><CheckCircle size={14}/> Inscrito</> : 'Inscribirse al Curso'}</button></div>
-                                    </div>
-                                  </div>
-                                );
-                            }
-                          })}
+                            <div className="p-4 border-b border-slate-800 bg-slate-900/50">
+                                <p className="text-xs font-bold text-slate-500 uppercase mb-1">Gestión y Administración</p>
+                                <p className="text-xs font-semibold text-slate-300 leading-tight">Copa Uyuni Tecnología</p>
+                                <p className="text-[10px] text-slate-500">Model Bolivia S.A.</p>
+                            </div>
+
+                            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                                <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                    <Layout size={18} /> Dashboard
+                                </button>
+                                <button onClick={() => setActiveTab('catalog')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'catalog' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                    <BookOpen size={18} /> Oferta Académica
+                                </button>
+                                <button onClick={() => setActiveTab('available_courses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'available_courses' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                    <Library size={18} /> Cursos Disponibles
+                                </button>
+                                
+                                {(canManageUsers || canCreateCourses) && (
+                                    <div className="mt-6 mb-2 px-4 text-xs font-bold text-slate-600 uppercase">Gestión</div>
+                                )}
+
+                                {canManageUsers && (
+                                    <button onClick={() => setActiveTab('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-blue-500/10 text-blue-400' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                        <Users size={18} /> Usuarios
+                                    </button>
+                                )}
+                                
+                                {canCreateCourses && (
+                                    <button onClick={openNewCourseModal} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 mt-2 transition-colors">
+                                        <Plus size={18} /> Nuevo Curso
+                                    </button>
+                                )}
+
+                                <div className="mt-6 mb-2 px-4 text-xs font-bold text-slate-600 uppercase">Cuenta</div>
+                                <button onClick={() => setShowProfileModal(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+                                    <Settings size={18} /> Mi Perfil
+                                </button>
+                            </nav>
+
+                            <div className="p-4 border-t border-slate-800">
+                                <button onClick={() => setLogoutModal(true)} className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                                    <LogOut size={18} /> Cerrar Sesión
+                                </button>
+                            </div>
                         </div>
-                      </>
+                    </aside>
+
+                    {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 z-20 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <header className="bg-slate-900 border-b border-slate-800 h-16 flex items-center justify-between px-4 md:px-8">
+                            <div className="flex items-center gap-4">
+                                <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}><Menu size={24}/></button>
+                                <h2 className="text-lg font-bold text-white">
+                                    {activeTab === 'dashboard' ? 'Panel de Control' : activeTab === 'catalog' ? 'Oferta Académica' : activeTab === 'available_courses' ? 'Cursos Disponibles' : 'Gestión de Usuarios'}
+                                </h2>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="text-right hidden md:block">
+                                    <div className="text-sm font-bold text-white">{currentUser.name}</div>
+                                    <div className="text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full inline-block">{currentUser.role}</div>
+                                </div>
+                                <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-md shadow-blue-900/30">
+                                    {currentUser.name.charAt(0)}
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                            <div className="max-w-7xl mx-auto space-y-8">
+                                {activeTab === 'dashboard' && (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <StatCard title="Cursos Disponibles" value={courses.length} icon={BookOpen} bgClass="bg-blue-600" colorClass="text-blue-400" />
+                                            <StatCard title="Mis Inscripciones" value={myEnrollments.length} icon={CheckCircle} bgClass="bg-green-600" colorClass="text-green-400" />
+                                            {canManageUsers && (
+                                                <StatCard title="Total Usuarios" value={usersList.length} icon={Users} bgClass="bg-purple-600" colorClass="text-purple-400" />
+                                            )}
+                                            <StatCard title="Certificados" value="0" icon={Award} bgClass="bg-yellow-600" colorClass="text-yellow-400" />
+                                        </div>
+                                        
+                                        <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+                                            <div className="p-5 border-b border-slate-800"><h3 className="font-bold text-white">Mis Inscripciones Activas</h3></div>
+                                            {myEnrollments.length === 0 ? (
+                                                <div className="p-8 text-center text-slate-500">
+                                                    <p>No estás inscrito en ningún curso.</p>
+                                                    <button onClick={() => setActiveTab('catalog')} className="text-blue-400 hover:underline mt-2">Ir al catálogo</button>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="bg-slate-950 text-slate-400"><tr><th className="px-6 py-3">Curso</th><th className="px-6 py-3">Instructor</th><th className="px-6 py-3 text-right">Acción</th></tr></thead>
+                                                        <tbody className="divide-y divide-slate-800">{myEnrollments.map(c => (<tr key={c.id} className="hover:bg-slate-800/50"><td className="px-6 py-4 font-medium text-slate-200">{c.title}</td><td className="px-6 py-4 text-slate-400">{c.instructor}</td><td className="px-6 py-4 text-right"><button onClick={() => handleUnenroll(c.id)} className="text-red-400 hover:text-red-300">Cancelar</button></td></tr>))}</tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+
+                                {(activeTab === 'catalog' || activeTab === 'available_courses') && (
+                                    <>
+                                        <div className="bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-800 space-y-4">
+                                            <div className="flex flex-col md:flex-row gap-4 justify-between">
+                                                <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+                                                    {MAIN_CATEGORIES.map(cat => (
+                                                        <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'}`}>{cat}</button>
+                                                    ))}
+                                                </div>
+                                                <div className="relative w-full md:w-64 shrink-0">
+                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                                    <input type="text" placeholder="Buscar curso..." className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-600" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                                </div>
+                                            </div>
+                                            
+                                            {selectedCategory !== 'Todas' && (
+                                                <div className="border-t border-slate-800 pt-3 space-y-3">
+                                                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                                                        <span className="text-xs font-bold text-slate-500 uppercase mr-2 shrink-0"><Filter size={12}/> Periodo:</span>
+                                                        <button onClick={() => setSelectedSubcategory('Todas')} className={`px-2.5 py-1 rounded text-xs border ${selectedSubcategory === 'Todas' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todas</button>
+                                                        {Object.keys(CATEGORIES_CONFIG[selectedCategory]).map(sub => (
+                                                            <button key={sub} onClick={() => setSelectedSubcategory(sub)} className={`px-2.5 py-1 rounded text-xs border whitespace-nowrap ${selectedSubcategory === sub ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{sub}</button>
+                                                        ))}
+                                                    </div>
+                                                    
+                                                    {selectedSubcategory !== 'Todas' && (
+                                                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                                                            <span className="text-xs font-bold text-slate-500 uppercase mr-2 shrink-0"><Tag size={12}/> Materia:</span>
+                                                            <button onClick={() => setSelectedTopic('Todos')} className={`px-2.5 py-1 rounded text-xs border ${selectedTopic === 'Todos' ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Todos</button>
+                                                            {CATEGORIES_CONFIG[selectedCategory][selectedSubcategory]?.map(topic => (
+                                                                <button key={topic} onClick={() => setSelectedTopic(topic)} className={`px-2.5 py-1 rounded text-xs border whitespace-nowrap ${selectedTopic === topic ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{topic}</button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {filteredCourses.map(course => {
+                                                const isEnrolled = myEnrollments.some(m => m.id === course.id);
+                                                const colors = getColorClasses(course.color); 
+                                                
+                                                if (activeTab === 'available_courses') {
+                                                    return (
+                                                        <div key={course.id} className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden flex flex-col hover:border-blue-500/50 transition-all relative group shadow-lg">
+                                                            {canEditCourses && (
+                                                                <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button onClick={() => startEditCourse(course)} className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-full shadow-lg border border-white/10" title="Editar Curso"><Pencil size={14} /></button>
+                                                                </div>
+                                                            )}
+                                                            <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-900 relative">
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    {course.videoEmbed ? <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center backdrop-blur-sm border border-blue-500/30 text-blue-400"><PlayCircle size={24} /></div> : <div className="text-slate-600">{getCategoryIcon(course.category)}</div>}
+                                                                </div>
+                                                                <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end">
+                                                                    <span className="text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-white px-2 py-1 rounded border border-slate-700">{course.category}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-5 flex-1 flex flex-col">
+                                                                <h4 className="font-bold text-white text-lg mb-1 line-clamp-2 leading-tight">{course.title}</h4>
+                                                                <p className="text-xs text-slate-400 mb-3 flex items-center gap-1"><User size={12}/> {course.instructor}</p>
+                                                                <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-800/50">
+                                                                    <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-bold">Nivel</span><div className="flex items-center gap-1 text-xs font-medium"><Signal size={12} className={getLevelColor(course.level)} /><span className="text-slate-300">{course.level}</span></div></div>
+                                                                    <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-bold">Duración</span><span className="text-xs font-medium text-slate-300 flex items-center gap-1"><Clock size={12}/> {course.duration}</span></div>
+                                                                    <div className="flex flex-col ml-auto"><span className="text-[10px] text-slate-500 uppercase font-bold">Valoración</span><div className="flex items-center gap-0.5 text-yellow-500"><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" /><Star size={10} fill="currentColor" opacity={0.5} /></div></div>
+                                                                </div>
+                                                                <p className="text-sm text-slate-400 mb-4 line-clamp-2">{course.description}</p>
+                                                                <div className="mt-auto space-y-2">
+                                                                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Recursos de Aprendizaje</p>
+                                                                    {course.videoEmbed ? (
+                                                                        <button onClick={() => setShowVideoModal(course)} className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/80 transition-all group/btn">
+                                                                            <div className="flex items-center gap-2"><div className="p-1.5 rounded bg-blue-500/10 text-blue-400"><PlayCircle size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Video Clase</p><p className="text-[10px] text-slate-500">{course.videoTitle || "Ver lección"}</p></div></div>
+                                                                            <ArrowRight size={14} className="text-slate-600 group-hover/btn:text-blue-400 transition-colors" />
+                                                                        </button>
+                                                                    ) : (course.videoLink && <a href={course.videoLink} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/80 transition-all group/btn"><div className="flex items-center gap-2"><div className="p-1.5 rounded bg-blue-500/10 text-blue-400"><ExternalLink size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Video Externo</p><p className="text-[10px] text-slate-500">Ver en plataforma</p></div></div></a>)}
+                                                                    {course.fileLink && <a href={course.fileLink} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800 rounded-lg border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/80 transition-all group/btn"><div className="flex items-center gap-2"><div className="p-1.5 rounded bg-green-500/10 text-green-400"><FileText size={14}/></div><div className="text-left"><p className="text-xs font-bold text-slate-200">Material de Lectura</p><p className="text-[10px] text-slate-500">{course.fileTitle || "Descargar PDF"}</p></div></div><Download size={14} className="text-slate-600 group-hover/btn:text-green-400 transition-colors" /></a>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <div key={course.id} className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden flex flex-col hover:shadow-lg hover:shadow-black/20 hover:border-slate-700 transition-all">
+                                                            <div className="h-32 bg-slate-800 flex items-center justify-center border-b border-slate-800"><div className="text-slate-600">{getCategoryIcon(course.category)}</div></div>
+                                                            <div className="p-5 flex-1 flex flex-col">
+                                                                <div className="mb-2"><span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">{course.category}</span></div>
+                                                                <h4 className="font-bold text-white mb-2 line-clamp-2">{course.title}</h4>
+                                                                <p className="text-sm text-slate-400 mb-4 line-clamp-3 flex-1">{course.description}</p>
+                                                                <div className="flex items-center text-xs text-slate-500 mb-4 gap-3"><span className="flex items-center gap-1"><Clock size={12}/> {course.duration}</span><span className="flex items-center gap-1"><User size={12}/> {course.instructor}</span></div>
+                                                                <div className="pt-4 border-t border-slate-800 mt-auto"><button onClick={() => handleEnroll(course)} disabled={isEnrolled} className={`w-full py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors ${isEnrolled ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>{isEnrolled ? <><CheckCircle size={14}/> Inscrito</> : 'Inscribirse al Curso'}</button></div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                            })}
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeTab === 'users' && canManageUsers && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        <div className="lg:col-span-1">
+                                            <div className={`rounded-xl shadow-sm border border-slate-800 overflow-hidden sticky top-6 ${userFormMode === 'edit' ? 'bg-blue-900/10 border-blue-500/30' : 'bg-slate-900'}`}>
+                                                <div className={`p-4 border-b border-slate-800 flex items-center gap-2 font-bold ${userFormMode === 'edit' ? 'text-blue-400' : 'text-white'}`}>
+                                                    {userFormMode === 'edit' ? <Pencil size={18} /> : <UserPlus size={18} />}
+                                                    {userFormMode === 'edit' ? 'Editar Usuario' : 'Nuevo Usuario'}
+                                                </div>
+                                                <form onSubmit={handleUserSubmit} className="p-4 space-y-3">
+                                                    <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre</label><input required type="text" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} />
+                                                        <div className="flex justify-end mt-1"><button type="button" onClick={handleAutoGenerate} className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"><Wand2 size={10} /> Generar Credenciales</button></div>
+                                                    </div>
+                                                    <div><label className="text-xs font-bold text-slate-500 uppercase">Email</label><input required type="email" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} /></div>
+                                                    <div>
+                                                        <label className="text-xs font-bold text-slate-500 uppercase">Rol</label>
+                                                        <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.role} onChange={e => setUserFormData({...userFormData, role: e.target.value})}>
+                                                            <option>Estudiante</option><option>Instructor</option><option>Administrador</option>
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    {userFormData.role === 'Estudiante' && (
+                                                        <div className="grid grid-cols-1 gap-3 pt-2 border-t border-slate-800">
+                                                            <div>
+                                                                <label className="text-xs font-bold text-slate-500 uppercase">Carrera</label>
+                                                                <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={userFormData.career} onChange={e => {
+                                                                    const cat = e.target.value; const sub = Object.keys(CATEGORIES_CONFIG[cat])[0];
+                                                                    setUserFormData({...userFormData, career: cat, period: sub});
+                                                                }}>{Object.keys(CATEGORIES_CONFIG).map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-bold text-slate-500 uppercase">Periodo</label>
+                                                                <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={userFormData.period} onChange={e => setUserFormData({...userFormData, period: e.target.value})}>
+                                                                    {Object.keys(CATEGORIES_CONFIG[userFormData.career || "Informática Industrial"]).map(s => <option key={s} value={s}>{s}</option>)}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {userFormData.role === 'Instructor' && (
+                                                        <div className="pt-2 border-t border-slate-800">
+                                                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Áreas de Enseñanza</label>
+                                                            <div className="space-y-2 bg-slate-950/50 p-2 rounded-lg border border-slate-700">
+                                                                {Object.keys(CATEGORIES_CONFIG).map(cat => (
+                                                                    <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-blue-400 transition-colors">
+                                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${userFormData.careers?.includes(cat) ? 'bg-blue-600 border-blue-600' : 'border-slate-600'}`}>
+                                                                            {userFormData.careers?.includes(cat) && <CheckSquare size={12} className="text-white" />}
+                                                                        </div>
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            className="hidden" 
+                                                                            checked={userFormData.careers?.includes(cat) || false}
+                                                                            onChange={() => toggleCareer(cat)}
+                                                                        />
+                                                                        <span className={`text-xs ${userFormData.careers?.includes(cat) ? 'text-white font-medium' : 'text-slate-400'}`}>{cat}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                            <div className="mt-3">
+                                                                <label className="text-xs font-bold text-slate-500 uppercase">Token de Docente</label>
+                                                                <div className="relative">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        readOnly 
+                                                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 text-slate-400 font-mono" 
+                                                                        value={userFormData.token || "Se generará automáticamente"} 
+                                                                    />
+                                                                    <Hash className="absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-slate-600" size={14} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="mt-3"><label className="text-xs font-bold text-slate-500 uppercase">Contraseña</label><input type="text" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder={userFormMode === 'create' ? "Opcional (Defecto: 123)" : "Ingrese nueva contraseña"} value={userFormData.password || ''} onChange={e => setUserFormData({...userFormData, password: e.target.value})} /></div>
+                                                    
+                                                    <div className="pt-2 flex gap-2">
+                                                        {userFormMode === 'edit' && <button type="button" onClick={cancelEditUser} className="flex-1 bg-slate-800 border border-slate-700 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">Cancelar</button>}
+                                                        <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-500">{userFormMode === 'edit' ? 'Guardar' : 'Crear'}</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <div className="lg:col-span-2">
+                                            <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
+                                                <div className="p-4 border-b border-slate-800 font-bold text-white">Directorio de Usuarios</div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="bg-slate-950 text-slate-400 font-medium"><tr><th className="px-5 py-3">Nombre</th><th className="px-5 py-3">Rol</th><th className="px-5 py-3 text-right">Acciones</th></tr></thead>
+                                                        <tbody className="divide-y divide-slate-800">
+                                                            <tr className="bg-blue-900/10">
+                                                                <td className="px-5 py-3 font-medium text-white">{INITIAL_ADMIN_DATA.name} (Tú)</td>
+                                                                <td className="px-5 py-3"><span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-xs font-bold border border-purple-500/20">Admin</span></td>
+                                                                <td className="px-5 py-3 text-right text-slate-500">-</td>
+                                                            </tr>
+                                                            {usersList.map(u => (
+                                                                <tr key={u.id} className={`hover:bg-slate-800 ${editingUser?.id === u.id ? 'bg-blue-900/10' : ''}`}>
+                                                                    <td className="px-5 py-3">
+                                                                        <div className="font-medium text-slate-200">{u.name}</div>
+                                                                        <div className="text-xs text-slate-500">{u.email}</div>
+                                                                        {u.role === 'Estudiante' && u.career && (
+                                                                            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-blue-400">
+                                                                                <GraduationCap size={12}/> {u.career} • {u.period}
+                                                                            </div>
+                                                                        )}
+                                                                        {u.role === 'Instructor' && u.token && (
+                                                                            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-orange-400 font-mono">
+                                                                                <Hash size={10}/> Token: {u.token}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-5 py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold border ${u.role === 'Instructor' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{u.role}</span></td>
+                                                                    <td className="px-5 py-3 text-right">
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button onClick={() => startEditUser(u)} className="p-1 text-slate-400 hover:text-blue-400"><Pencil size={16}/></button>
+                                                                            <button onClick={() => setDeleteUserModal({ isOpen: true, userId: u.id })} className="p-1 text-slate-400 hover:text-red-400"><Trash2 size={16}/></button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </main>
+                    </div>
+
+                    <Modal isOpen={showCourseModal} onClose={() => setShowCourseModal(false)} title={courseFormMode === 'edit' ? 'Editar Curso' : 'Nuevo Curso'}>
+                        <form onSubmit={handleCourseSubmit} className="space-y-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre del Curso</label><input required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={newCourse.title} onChange={e => setNewCourse({...newCourse, title: e.target.value})} /></div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="text-xs font-bold text-slate-500 uppercase">Carrera</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.category} onChange={e => {
+                                    const cat = e.target.value; const sub = Object.keys(CATEGORIES_CONFIG[cat])[0];
+                                    setNewCourse({...newCourse, category: cat, subcategory: sub, topic: CATEGORIES_CONFIG[cat][sub][0]});
+                                }}>{
+                                    (currentUser.role === 'Administrador' ? Object.keys(CATEGORIES_CONFIG) : (currentUser.careers || [])).map(c => <option key={c} value={c}>{c}</option>)
+                                }</select></div>
+                                <div><label className="text-xs font-bold text-slate-500 uppercase">Periodo</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.subcategory} onChange={e => {
+                                    const sub = e.target.value;
+                                    setNewCourse({...newCourse, subcategory: sub, topic: CATEGORIES_CONFIG[newCourse.category][sub][0]});
+                                }}>{Object.keys(CATEGORIES_CONFIG[newCourse.category]).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                            </div>
+                            
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Materia</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.topic} onChange={e => setNewCourse({...newCourse, topic: e.target.value})}>{CATEGORIES_CONFIG[newCourse.category][newCourse.subcategory].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="text-xs font-bold text-slate-500 uppercase">Docente</label><select required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})}>
+                                    <option value="">Seleccionar...</option>
+                                    {usersList.filter(u => u.role === 'Instructor' && (u.careers?.includes(newCourse.category) || false)).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                                    {currentUser.role === 'Instructor' && <option value={currentUser.name}>{currentUser.name}</option>}
+                                </select></div>
+                                <div><label className="text-xs font-bold text-slate-500 uppercase">Duración</label><input required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" placeholder="Ej. 40h" value={newCourse.duration} onChange={e => setNewCourse({...newCourse, duration: e.target.value})} /></div>
+                            </div>
+
+                            <div className="border-t border-slate-800 pt-3 mt-2">
+                                <p className="text-xs font-bold text-blue-400 mb-2">Recursos Multimedia</p>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-slate-500">Material (Link)</label>
+                                        <div className="flex gap-2"><input className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="Título..." value={newCourse.fileTitle} onChange={e => setNewCourse({...newCourse, fileTitle: e.target.value})} /><input className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="https://..." value={newCourse.fileLink} onChange={e => setNewCourse({...newCourse, fileLink: e.target.value})} /></div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-500">Video (Link o Embed)</label>
+                                        <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs mb-1 text-white" placeholder="Título del video..." value={newCourse.videoTitle} onChange={e => setNewCourse({...newCourse, videoTitle: e.target.value})} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="Link Directo URL" value={newCourse.videoLink} onChange={e => setNewCourse({...newCourse, videoLink: e.target.value})} />
+                                            <input className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white" placeholder="Embed <iframe> code" value={newCourse.videoEmbed} onChange={e => setNewCourse({...newCourse, videoEmbed: e.target.value})} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div><label className="text-xs font-bold text-slate-500 uppercase">Descripción</label><textarea required rows="2" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.description} onChange={e => setNewCourse({...newCourse, description: e.target.value})} /></div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-500 transition-colors">{courseFormMode === 'edit' ? 'Guardar Cambios' : 'Guardar Curso'}</button>
+                        </form>
+                    </Modal>
+
+                    <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Mi Perfil">
+                        <form onSubmit={handleUpdatePassword} className="space-y-4">
+                            <div className="bg-slate-950 border border-slate-700 rounded-lg p-4 space-y-3">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Nombre</label>
+                                    <p className="text-sm font-medium text-white">{currentUser?.name}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
+                                    <p className="text-sm font-medium text-white">{currentUser?.email}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Rol</label>
+                                    <p className="text-sm font-medium text-blue-400">{currentUser?.role}</p>
+                                </div>
+                                {currentUser?.career && (
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Carrera / Periodo</label>
+                                        <p className="text-sm font-medium text-slate-300">{currentUser.career} - {currentUser.period}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-800">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Nueva Contraseña</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" 
+                                    placeholder="Ingresa nueva contraseña" 
+                                    value={newProfilePassword} 
+                                    onChange={e => setNewProfilePassword(e.target.value)} 
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1">Deja en blanco para mantener la actual.</p>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                                <button type="button" onClick={() => setShowProfileModal(false)} className="flex-1 bg-slate-800 border border-slate-700 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">Cancelar</button>
+                                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500">Actualizar Contraseña</button>
+                            </div>
+                        </form>
+                    </Modal>
+
+                    {showVideoModal && (
+                        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setShowVideoModal(null)}>
+                            <div className="w-full max-w-4xl bg-black rounded-lg overflow-hidden shadow-2xl relative border border-slate-800" onClick={e => e.stopPropagation()}>
+                                <div className="absolute top-2 right-2 z-10"><button onClick={() => setShowVideoModal(null)} className="bg-black/50 text-white rounded-full p-1 hover:bg-white/20"><X size={24}/></button></div>
+                                <div className="aspect-video w-full flex items-center justify-center">
+                                    <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: showVideoModal.videoEmbed }} />
+                                </div>
+                                <div className="p-4 bg-slate-900 text-white border-t border-slate-800"><h3 className="font-bold">{showVideoModal.videoTitle || showVideoModal.title}</h3></div>
+                            </div>
+                        </div>
                     )}
 
-                    {/* USERS VIEW (ADMIN ONLY) */}
-                    {activeTab === 'users' && canManageUsers && (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-1">
-                          <div className={`rounded-xl shadow-sm border border-slate-800 overflow-hidden sticky top-6 ${userFormMode === 'edit' ? 'bg-blue-900/10 border-blue-500/30' : 'bg-slate-900'}`}>
-                            <div className={`p-4 border-b border-slate-800 flex items-center gap-2 font-bold ${userFormMode === 'edit' ? 'text-blue-400' : 'text-white'}`}>
-                              {userFormMode === 'edit' ? <Pencil size={18} /> : <UserPlus size={18} />}
-                              {userFormMode === 'edit' ? 'Editar Usuario' : 'Nuevo Usuario'}
-                            </div>
-                            <form onSubmit={handleUserSubmit} className="p-4 space-y-3">
-                              <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre</label><input required type="text" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.name} onChange={e => setUserFormData({...userFormData, name: e.target.value})} />
-                                 <div className="flex justify-end mt-1"><button type="button" onClick={handleAutoGenerate} className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"><Wand2 size={10} /> Generar Credenciales</button></div>
-                              </div>
-                              <div><label className="text-xs font-bold text-slate-500 uppercase">Email</label><input required type="email" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.email} onChange={e => setUserFormData({...userFormData, email: e.target.value})} /></div>
-                              <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Rol</label>
-                                <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={userFormData.role} onChange={e => setUserFormData({...userFormData, role: e.target.value})}>
-                                  <option>Estudiante</option><option>Instructor</option><option>Administrador</option>
-                                </select>
-                              </div>
-                              
-                              {/* Campos condicionales para Estudiante */}
-                              {userFormData.role === 'Estudiante' && (
-                                <div className="grid grid-cols-1 gap-3 pt-2 border-t border-slate-800">
-                                   <div>
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Carrera</label>
-                                      <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={userFormData.career} onChange={e => {
-                                          const cat = e.target.value; const sub = Object.keys(CATEGORIES_CONFIG[cat])[0];
-                                          setUserFormData({...userFormData, career: cat, period: sub});
-                                      }}>{Object.keys(CATEGORIES_CONFIG).map(c => <option key={c} value={c}>{c}</option>)}</select>
-                                   </div>
-                                   <div>
-                                      <label className="text-xs font-bold text-slate-500 uppercase">Periodo</label>
-                                      <select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={userFormData.period} onChange={e => setUserFormData({...userFormData, period: e.target.value})}>
-                                          {Object.keys(CATEGORIES_CONFIG[userFormData.career || "Informática Industrial"]).map(s => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                   </div>
-                                </div>
-                              )}
-                              
-                              {/* Campos condicionales para Instructor (Multi-Carrera) */}
-                              {userFormData.role === 'Instructor' && (
-                                 <div className="pt-2 border-t border-slate-800">
-                                    <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Áreas de Enseñanza</label>
-                                    <div className="space-y-2 bg-slate-950/50 p-2 rounded-lg border border-slate-700">
-                                        {Object.keys(CATEGORIES_CONFIG).map(cat => (
-                                            <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-blue-400 transition-colors">
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center ${userFormData.careers?.includes(cat) ? 'bg-blue-600 border-blue-600' : 'border-slate-600'}`}>
-                                                    {userFormData.careers?.includes(cat) && <CheckSquare size={12} className="text-white" />}
-                                                </div>
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="hidden" 
-                                                    checked={userFormData.careers?.includes(cat) || false}
-                                                    onChange={() => toggleCareer(cat)}
-                                                />
-                                                <span className={`text-xs ${userFormData.careers?.includes(cat) ? 'text-white font-medium' : 'text-slate-400'}`}>{cat}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                     <div className="mt-3">
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Token de Docente</label>
-                                        <div className="relative">
-                                           <input 
-                                              type="text" 
-                                              readOnly 
-                                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 text-slate-400 font-mono" 
-                                              value={userFormData.token || "Se generará automáticamente"} 
-                                           />
-                                           <Hash className="absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-slate-600" size={14} />
-                                        </div>
-                                     </div>
-                                 </div>
-                              )}
+                    <ConfirmationModal isOpen={logoutModal} onClose={() => setLogoutModal(false)} onConfirm={confirmLogout} title="Cerrar Sesión" message="¿Estás seguro de que quieres salir del sistema?" confirmText="Salir" confirmColor="bg-blue-600 hover:bg-blue-700" />
+                    <ConfirmationModal isOpen={deleteUserModal.isOpen} onClose={() => setDeleteUserModal({ isOpen: false })} onConfirm={confirmDeleteUser} title="Eliminar Usuario" message="¿Eliminar este usuario permanentemente? Esta acción no se puede deshacer." confirmText="Eliminar" />
 
-                              <div className="mt-3"><label className="text-xs font-bold text-slate-500 uppercase">Contraseña</label><input type="text" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" placeholder={userFormMode === 'create' ? "Opcional (Defecto: 123)" : "Ingrese nueva contraseña"} value={userFormData.password || ''} onChange={e => setUserFormData({...userFormData, password: e.target.value})} /></div>
-                              
-                              <div className="pt-2 flex gap-2">
-                                {userFormMode === 'edit' && <button type="button" onClick={cancelEditUser} className="flex-1 bg-slate-800 border border-slate-700 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">Cancelar</button>}
-                                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-500">{userFormMode === 'edit' ? 'Guardar' : 'Crear'}</button>
-                      </div>
-                    </form>
-                  </div>
                 </div>
+            );
+        }
 
-                <div className="lg:col-span-2">
-                  <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 overflow-hidden">
-                    <div className="p-4 border-b border-slate-800 font-bold text-white">Directorio de Usuarios</div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-950 text-slate-400 font-medium"><tr><th className="px-5 py-3">Nombre</th><th className="px-5 py-3">Rol</th><th className="px-5 py-3 text-right">Acciones</th></tr></thead>
-                        <tbody className="divide-y divide-slate-800">
-                          <tr className="bg-blue-900/10"><td className="px-5 py-3 font-medium text-white">{INITIAL_ADMIN_DATA.name} (Tú)</td><td className="px-5 py-3"><span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-xs font-bold border border-purple-500/20">Admin</span></td><td className="px-5 py-3 text-right text-slate-500">-</td></tr>
-                          {usersList.map(u => (
-                            <tr key={u.id} className={`hover:bg-slate-800 ${editingUser?.id === u.id ? 'bg-blue-900/10' : ''}`}>
-                              <td className="px-5 py-3">
-                                <div className="font-medium text-slate-200">{u.name}</div>
-                                <div className="text-xs text-slate-500">{u.email}</div>
-                                {u.role === 'Estudiante' && u.career && (
-                                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-blue-400">
-                                        <GraduationCap size={12}/> {u.career} • {u.period}
-                                    </div>
-                                )}
-                                {u.role === 'Instructor' && u.token && (
-                                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-orange-400 font-mono">
-                                        <Hash size={10}/> Token: {u.token}
-                                    </div>
-                                )}
-                              </td>
-                              <td className="px-5 py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold border ${u.role === 'Instructor' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{u.role}</span></td>
-                              <td className="px-5 py-3 text-right">
-                                <div className="flex justify-end gap-2">
-                                  <button onClick={() => startEditUser(u)} className="p-1 text-slate-400 hover:text-blue-400"><Pencil size={16}/></button>
-                                  <button onClick={() => setDeleteUserModal({ isOpen: true, userId: u.id })} className="p-1 text-slate-400 hover:text-red-400"><Trash2 size={16}/></button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      <Modal isOpen={showCourseModal} onClose={() => setShowCourseModal(false)} title={courseFormMode === 'edit' ? 'Editar Curso' : 'Nuevo Curso'}>
-        <form onSubmit={handleCourseSubmit} className="space-y-4">
-          <div><label className="text-xs font-bold text-slate-500 uppercase">Nombre del Curso</label><input required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" value={newCourse.title} onChange={e => setNewCourse({...newCourse, title: e.target.value})} /></div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs font-bold text-slate-500 uppercase">Carrera</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.category} onChange={e => {
-                const cat = e.target.value; const sub = Object.keys(CATEGORIES_CONFIG[cat])[0];
-                setNewCourse({...newCourse, category: cat, subcategory: sub, topic: CATEGORIES_CONFIG[cat][sub][0]});
-            }}>{
-                (currentUser.role === 'Administrador' ? Object.keys(CATEGORIES_CONFIG) : (currentUser.careers || [])).map(c => <option key={c} value={c}>{c}</option>)
-            }</select></div>
-            <div><label className="text-xs font-bold text-slate-500 uppercase">Periodo</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.subcategory} onChange={e => {
-                const sub = e.target.value;
-                setNewCourse({...newCourse, subcategory: sub, topic: CATEGORIES_CONFIG[newCourse.category][sub][0]});
-            }}>{Object.keys(CATEGORIES_CONFIG[newCourse.category]).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-          </div>
-          
-          <div><label className="text-xs font-bold text-slate-500 uppercase">Materia</label><select className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.topic} onChange={e => setNewCourse({...newCourse, topic: e.target.value})}>{CATEGORIES_CONFIG[newCourse.category][newCourse.subcategory].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-          
-          <div className="grid grid-cols-2 gap-3">
-             <div><label className="text-xs font-bold text-slate-500 uppercase">Docente</label><select required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.instructor} onChange={e => setNewCourse({...newCourse, instructor: e.target.value})}>
-                 <option value="">Seleccionar...</option>
-                 {usersList.filter(u => u.role === 'Instructor' && (u.careers?.includes(newCourse.category) || false)).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                 {currentUser.role === 'Instructor' && <option value={currentUser.name}>{currentUser.name}</option>}
-             </select></div>
-             <div><label className="text-xs font-bold text-slate-500 uppercase">Duración</label><input required className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" placeholder="Ej. 40h" value={newCourse.duration} onChange={e => setNewCourse({...newCourse, duration: e.target.value})} /></div>
-          </div>
-
-          <div className="border-t border-slate-800 pt-3 mt-2">
-            <p className="text-xs font-bold text-blue-400 mb-2">Recursos Multimedia</p>
-            <div className="space-y-3">
-                <div>
-                   <label className="text-xs text-slate-500">Material (Link)</label>
-                   <div className="flex gap-2"><input className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="Título..." value={newCourse.fileTitle} onChange={e => setNewCourse({...newCourse, fileTitle: e.target.value})} /><input className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="https://..." value={newCourse.fileLink} onChange={e => setNewCourse({...newCourse, fileLink: e.target.value})} /></div>
-                </div>
-                <div>
-                   <label className="text-xs text-slate-500">Video (Link o Embed)</label>
-                   <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs mb-1 text-white" placeholder="Título del video..." value={newCourse.videoTitle} onChange={e => setNewCourse({...newCourse, videoTitle: e.target.value})} />
-                   <div className="grid grid-cols-2 gap-2">
-                     <input className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" placeholder="Link Directo URL" value={newCourse.videoLink} onChange={e => setNewCourse({...newCourse, videoLink: e.target.value})} />
-                     <input className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white" placeholder="Embed <iframe> code" value={newCourse.videoEmbed} onChange={e => setNewCourse({...newCourse, videoEmbed: e.target.value})} />
-                   </div>
-                </div>
-            </div>
-          </div>
-
-          <div><label className="text-xs font-bold text-slate-500 uppercase">Descripción</label><textarea required rows="2" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 outline-none text-white" value={newCourse.description} onChange={e => setNewCourse({...newCourse, description: e.target.value})} /></div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-500 transition-colors">{courseFormMode === 'edit' ? 'Guardar Cambios' : 'Guardar Curso'}</button>
-        </form>
-      </Modal>
-
-      <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Mi Perfil">
-        <form onSubmit={handleUpdatePassword} className="space-y-4">
-            <div className="bg-slate-950 border border-slate-700 rounded-lg p-4 space-y-3">
-                <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Nombre</label>
-                    <p className="text-sm font-medium text-white">{currentUser?.name}</p>
-                </div>
-                <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
-                    <p className="text-sm font-medium text-white">{currentUser?.email}</p>
-                </div>
-                <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Rol</label>
-                    <p className="text-sm font-medium text-blue-400">{currentUser?.role}</p>
-                </div>
-                {currentUser?.career && (
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase">Carrera / Periodo</label>
-                        <p className="text-sm font-medium text-slate-300">{currentUser.career} - {currentUser.period}</p>
-                    </div>
-                )}
-            </div>
-
-            <div className="pt-2 border-t border-slate-800">
-                <label className="text-xs font-bold text-slate-500 uppercase">Nueva Contraseña</label>
-                <input 
-                    type="text" 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none text-white" 
-                    placeholder="Ingresa nueva contraseña" 
-                    value={newProfilePassword} 
-                    onChange={e => setNewProfilePassword(e.target.value)} 
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Deja en blanco para mantener la actual.</p>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowProfileModal(false)} className="flex-1 bg-slate-800 border border-slate-700 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700">Cancelar</button>
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-bold hover:bg-blue-500">Actualizar Contraseña</button>
-            </div>
-        </form>
-      </Modal>
-
-      {showVideoModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setShowVideoModal(null)}>
-          <div className="w-full max-w-4xl bg-black rounded-lg overflow-hidden shadow-2xl relative border border-slate-800" onClick={e => e.stopPropagation()}>
-             <div className="absolute top-2 right-2 z-10"><button onClick={() => setShowVideoModal(null)} className="bg-black/50 text-white rounded-full p-1 hover:bg-white/20"><X size={24}/></button></div>
-             <div className="aspect-video w-full flex items-center justify-center">
-                <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: showVideoModal.videoEmbed }} />
-             </div>
-             <div className="p-4 bg-slate-900 text-white border-t border-slate-800"><h3 className="font-bold">{showVideoModal.videoTitle || showVideoModal.title}</h3></div>
-          </div>
-        </div>
-      )}
-
-      <ConfirmationModal isOpen={logoutModal} onClose={() => setLogoutModal(false)} onConfirm={confirmLogout} title="Cerrar Sesión" message="¿Estás seguro de que quieres salir del sistema?" confirmText="Salir" confirmColor="bg-blue-600 hover:bg-blue-700" />
-      <ConfirmationModal isOpen={deleteUserModal.isOpen} onClose={() => setDeleteUserModal({ isOpen: false })} onConfirm={confirmDeleteUser} title="Eliminar Usuario" message="¿Eliminar este usuario permanentemente? Esta acción no se puede deshacer." confirmText="Eliminar" />
-
-    </div>
-  );
-}
-
-// --- RENDERIZADO EN EL NAVEGADOR ---
-const root = createRoot(document.getElementById('root'));
-root.render(<App />);
-</script>
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
